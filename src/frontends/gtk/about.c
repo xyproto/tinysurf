@@ -110,7 +110,7 @@ void nsgtk_about_dialog_init(GtkWindow *parent)
 	gtk_window_set_child(GTK_WINDOW(dialog), vbox);
 
 	/* TinySurf icon */
-	if (nsgdk_pixbuf_new_from_resname("tinysurf.xpm", &pixbuf) ==
+	if (nsgdk_pixbuf_new_from_resname("tinysurf-icon.png", &pixbuf) ==
 	    NSERROR_OK) {
 		GtkWidget *image;
 

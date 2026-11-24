@@ -53,8 +53,7 @@ static struct search_web_ctx_s {
 } search_web_ctx;
 
 
-static const char *default_providers =
-	"DuckDuckGo|www.duckduckgo.com|https://www.duckduckgo.com/html/?q=%s|https://www.duckduckgo.com/favicon.ico|\n";
+#include "search_engines.inc"
 
 static const char *default_search_icon_url = "resource:icons/search.png";
 
@@ -556,11 +555,16 @@ nserror search_web_init(const char *provider_fname)
 	/* get a list of providers */
 	ret = read_providers(provider_fname, &providers, &providers_size);
 	if (ret != NSERROR_OK) {
-		providers = strdup(default_providers);
+		if (ret != NSERROR_NOT_FOUND && ret != NSERROR_BAD_PARAMETER) {
+			return ret;
+		}
+		providers_size = tinysurf_search_engines_len;
+		providers = malloc(providers_size + 1);
 		if (providers == NULL) {
 			return NSERROR_NOMEM;
 		}
-		providers_size = strlen(providers);
+		memcpy(providers, tinysurf_search_engines, providers_size);
+		providers[providers_size] = '\0';
 	}
 
 	/* parse list of providers */

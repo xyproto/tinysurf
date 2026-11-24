@@ -93,7 +93,7 @@ static struct nsgtk_resource_s ui_resource[] = {
 /** resources that are used as pixbufs */
 static struct nsgtk_resource_s pixbuf_resource[] = {
 	RES_ENTRY("favicon.png"),
-	RES_ENTRY("tinysurf.xpm"),
+	RES_ENTRY("tinysurf-icon.png"),
 	RES_ENTRY("menu_cursor.png"),
 	RES_ENTRY("icons/local-history.png"),
 	RES_ENTRY("icons/show-cookie.png"),
@@ -129,6 +129,7 @@ static struct nsgtk_resource_s direct_resource[] = {
 	RES_ENTRY("quirks.css"),
 	RES_ENTRY("tinysurf.png"),
 	RES_ENTRY("default.ico"),
+	RES_ENTRY("favicon.ico"),
 	RES_ENTRY("icons/arrow-l.png"),
 	RES_ENTRY("icons/content.png"),
 	RES_ENTRY("icons/directory2.png"),
@@ -331,7 +332,7 @@ init_pixbuf_resource(char **respath, struct nsgtk_resource_s *resource)
 		return NSERROR_OK;
 	}
 
-	if (strncmp(resource->name, "tinysurf.xpm", resource->len) == 0) {
+	if (strncmp(resource->name, "tinysurf-icon.png", resource->len) == 0) {
 		resource->path = (char *)&tinysurf_pixdata[0];
 		resource->type = NSGTK_RESOURCE_INLINE;
 		NSLOG(tinysurf, INFO, "Found builtin for %s", resource->name);

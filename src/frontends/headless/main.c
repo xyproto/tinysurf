@@ -19,7 +19,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
+#ifdef _WIN32
+#include <winsock2.h>
+#include <windows.h>
+#include <io.h>
+#else
 #include <sys/select.h>
+#endif
 #include <sys/types.h>
 #include <unistd.h>
 #include <string.h>
@@ -355,6 +361,7 @@ static void headless_run(void)
 			}
 		}
 
+#ifndef _WIN32
 		/* add stdin to the set */
 		if (max_fd < 0) {
 			max_fd = 0;
@@ -363,6 +370,7 @@ static void headless_run(void)
 			FD_SET(0, &read_fd_set);
 			FD_SET(0, &exc_fd_set);
 		}
+#endif
 
 		/* setup timeout */
 		switch (schedtm) {
@@ -389,21 +397,74 @@ static void headless_run(void)
 			break;
 		}
 
+#ifdef _WIN32
+		if (!headless_duck_active()) {
+			HANDLE input = (HANDLE)_get_osfhandle(0);
+			DWORD available = 0;
+			DWORD type = GetFileType(input);
+			bool input_ready;
+
+			if (type == FILE_TYPE_PIPE) {
+				if (!PeekNamedPipe(input, NULL, 0, NULL, &available, NULL)) {
+					DWORD error = GetLastError();
+					if (error != ERROR_BROKEN_PIPE) {
+						NSLOG(tinysurf, CRITICAL, "Unable to inspect stdin: %lu",
+						      (unsigned long)error);
+						headless_done = true;
+						continue;
+					}
+					input_ready = true;
+				} else {
+					input_ready = available > 0;
+				}
+			} else {
+				DWORD status = WaitForSingleObject(input, 0);
+				if (status == WAIT_FAILED) {
+					NSLOG(tinysurf, CRITICAL, "Unable to wait for stdin: %lu",
+					      (unsigned long)GetLastError());
+					headless_done = true;
+					continue;
+				}
+				input_ready = status == WAIT_OBJECT_0;
+			}
+			if (input_ready) {
+				headless_process_command();
+				if (headless_done) {
+					continue;
+				}
+			}
+		}
+		if (timeout == NULL || timeout->tv_sec > 0 || timeout->tv_usec > 25000) {
+			tv.tv_sec = 0;
+			tv.tv_usec = 25000;
+			timeout = &tv;
+		}
+		if (max_fd < 0) {
+			Sleep((DWORD)((timeout->tv_usec + 999) / 1000));
+			continue;
+		}
+#endif
 		rdy_fd = select(max_fd + 1,
 				&read_fd_set,
 				&write_fd_set,
 				&exc_fd_set,
 				timeout);
 		if (rdy_fd < 0) {
+#ifdef _WIN32
+			NSLOG(tinysurf, CRITICAL, "Unable to select: %d", WSAGetLastError());
+#else
 			NSLOG(tinysurf,
 			      CRITICAL,
 			      "Unable to select: %s",
 			      strerror(errno));
+#endif
 			headless_done = true;
+#ifndef _WIN32
 		} else if (rdy_fd > 0) {
 			if (FD_ISSET(0, &read_fd_set)) {
 				headless_process_command();
 			}
+#endif
 		}
 	}
 }
@@ -465,7 +526,9 @@ static void signal_handler(int sig)
 
 int main(int argc, char **argv)
 {
-	char *messages;
+	const uint8_t *messages;
+	size_t messages_size;
+	char *messages_file;
 	char *options;
 	char buf[PATH_MAX];
 	char *query;
@@ -522,15 +585,30 @@ int main(int argc, char **argv)
 	free(options);
 	nsoption_commandline(&argc, argv, nsoptions);
 
-	messages = filepath_find(respaths, "Messages");
-	ret = messages_add_from_file(messages);
+	messages_file = filepath_find(respaths, "Messages");
+	if (messages_file != NULL) {
+		ret = messages_add_from_file(messages_file);
+		if (ret != NSERROR_OK) {
+			NSLOG(tinysurf, WARNING, "Unable to load messages from %s; using embedded messages",
+			      messages_file);
+		}
+		free(messages_file);
+	} else {
+		ret = NSERROR_NOT_FOUND;
+	}
 	if (ret != NSERROR_OK) {
-		NSLOG(tinysurf, INFO, "Messages failed to load");
+		ret = headless_resource_data("Messages", &messages, &messages_size);
+		if (ret == NSERROR_OK) {
+			ret = messages_add_from_inline(messages, messages_size);
+			free((void *)messages);
+		}
+	}
+	if (ret != NSERROR_OK) {
+		die("Messages failed to load");
 	}
 
 	/* common initialisation */
 	ret = tinysurf_init(NULL);
-	free(messages);
 	if (ret != NSERROR_OK) {
 		die("TinySurf failed to initialise");
 	}

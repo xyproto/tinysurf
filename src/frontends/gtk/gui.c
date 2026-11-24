@@ -1111,7 +1111,7 @@ static nserror nsgtk_setup(int argc, char **argv, char **respath)
 	}
 
 	/* set default icon if its available */
-	res = nsgdk_pixbuf_new_from_resname("tinysurf.xpm",
+	res = nsgdk_pixbuf_new_from_resname("tinysurf-icon.png",
 					    &win_default_icon_pixbuf);
 	if (res == NSERROR_OK) {
 		NSLOG(tinysurf, INFO, "Seting default window icon");
@@ -1120,7 +1120,11 @@ static nserror nsgtk_setup(int argc, char **argv, char **respath)
 
 	/* Search engine sources */
 	resource_filename = filepath_find(respath, "SearchEngines");
-	search_web_init(resource_filename);
+	res = search_web_init(resource_filename);
+	if (res != NSERROR_OK) {
+		NSLOG(tinysurf, WARNING, "Unable to initialise search providers: %s",
+		      messages_get_errorcode(res));
+	}
 	if (resource_filename != NULL) {
 		NSLOG(tinysurf,
 		      INFO,

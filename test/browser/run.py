@@ -3,9 +3,11 @@
 
 import argparse
 import os
-import select
+import pathlib
+import queue
 import subprocess
 import sys
+import threading
 import time
 
 LOG_MARKER = " NOT-FOLDABLE LOG "
@@ -18,6 +20,15 @@ def run_page(headless, page, timeout):
     results = []
     errors = []
     done = False
+    lines = queue.Queue()
+
+    def read_output():
+        for line in proc.stdout:
+            lines.put(line)
+        lines.put(None)
+
+    reader = threading.Thread(target=read_output, daemon=True)
+    reader.start()
 
     def send(command):
         try:
@@ -26,16 +37,16 @@ def run_page(headless, page, timeout):
         except OSError:
             pass
 
-    send("WINDOW NEW file://" + os.path.abspath(page))
+    send("WINDOW NEW " + pathlib.Path(page).resolve().as_uri())
     deadline = time.monotonic() + timeout
     while not done and time.monotonic() < deadline:
-        ready, _, _ = select.select([proc.stdout], [], [], 0.1)
-        if not ready:
+        try:
+            line = lines.get(timeout=0.1)
+        except queue.Empty:
             if proc.poll() is not None:
                 break
             continue
-        line = proc.stdout.readline()
-        if not line:
+        if line is None:
             break
         line = line.rstrip("\n")
         if LOG_MARKER in line:
@@ -52,14 +63,16 @@ def run_page(headless, page, timeout):
     except OSError:
         pass
     try:
-        rest, _ = proc.communicate(timeout=20)
-        for line in rest.splitlines():
-            if "AddressSanitizer" in line or "runtime error" in line:
-                errors.append(line)
+        proc.wait(timeout=20)
     except subprocess.TimeoutExpired:
         proc.kill()
-        proc.communicate()
+        proc.wait()
         errors.append("headless did not exit after QUIT")
+    reader.join(timeout=5)
+    while not lines.empty():
+        line = lines.get_nowait()
+        if line is not None and ("AddressSanitizer" in line or "runtime error" in line):
+            errors.append(line.rstrip("\n"))
     if proc.returncode not in (0, None) and not errors:
         errors.append("headless exited with status %d" % proc.returncode)
     if not done:

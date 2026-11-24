@@ -156,6 +156,19 @@ START_TEST(hashtable_create_test)
 }
 END_TEST
 
+START_TEST(hashtable_inline_crlf_test)
+{
+	static const uint8_t input[] = "\r\n# comment\r\none:first\r\ntwo:second\r\n";
+	struct hash_table *ht = hash_create(42);
+
+	ck_assert_ptr_nonnull(ht);
+	ck_assert_int_eq(hash_add_inline(ht, input, sizeof(input) - 1), NSERROR_OK);
+	ck_assert_str_eq(hash_get(ht, "one"), "first");
+	ck_assert_str_eq(hash_get(ht, "two"), "second");
+	hash_destroy(ht);
+}
+END_TEST
+
 /**
  * Test hash table simple operation
  *
@@ -279,6 +292,7 @@ static Suite *hashtable_suite(void)
 	tcase_add_test(tc_create, hashtable_create_test);
 	tcase_add_test(tc_create, hashtable_negative_test);
 	tcase_add_test(tc_create, hashtable_positive_test);
+	tcase_add_test(tc_create, hashtable_inline_crlf_test);
 
 	suite_add_tcase(s, tc_create);
 

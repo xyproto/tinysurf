@@ -96,6 +96,9 @@ static nserror process_line(struct hash_table *hash, uint8_t *ln, int lnlen)
 	uint8_t *colon;
 	nserror res;
 
+	if (lnlen > 0 && ln[lnlen - 1] == '\r') {
+		ln[--lnlen] = 0;
+	}
 	key = ln; /* set key to start of line */
 	value = ln + lnlen; /* set value to end of line */
 

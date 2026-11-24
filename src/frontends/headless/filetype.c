@@ -65,6 +65,8 @@ void headless_fetch_filetype_init(const char *mimefile)
 	 */
 
 	hash_add(mime_hash, "css", "text/css");
+	hash_add(mime_hash, "js", "application/javascript");
+	hash_add(mime_hash, "mjs", "application/javascript");
 	hash_add(mime_hash, "htm", "text/html");
 	hash_add(mime_hash, "html", "text/html");
 	hash_add(mime_hash, "jpg", "image/jpeg");
@@ -72,6 +74,7 @@ void headless_fetch_filetype_init(const char *mimefile)
 	hash_add(mime_hash, "bmp", "image/bmp");
 	hash_add(mime_hash, "gif", "image/gif");
 	hash_add(mime_hash, "png", "image/png");
+	hash_add(mime_hash, "svg", "image/svg+xml");
 	hash_add(mime_hash, "ico", "image/ico");
 	hash_add(mime_hash, "jng", "image/jng");
 	hash_add(mime_hash, "mng", "image/mng");
@@ -187,14 +190,7 @@ const char *headless_fetch_filetype(const char *unix_path)
 	const char *type;
 	int l;
 
-	if (stat(unix_path, &statbuf) != 0) {
-		/* error calling stat, the file has probably become
-		 * inacessible, this routine cannot fail so just
-		 * return the default mime type.
-		 */
-		return "text/plain";
-	}
-	if (S_ISDIR(statbuf.st_mode)) {
+	if (stat(unix_path, &statbuf) == 0 && S_ISDIR(statbuf.st_mode)) {
 		return "application/x-tinysurf-directory";
 	}
 

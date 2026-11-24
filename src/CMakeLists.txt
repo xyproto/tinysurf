@@ -1,6 +1,15 @@
 set(NETSURFY_GEN ${CMAKE_CURRENT_BINARY_DIR}/gen)
 file(MAKE_DIRECTORY ${NETSURFY_GEN})
 
+add_custom_command(
+  OUTPUT ${NETSURFY_GEN}/search_engines.inc
+  COMMAND ${CMAKE_COMMAND} -DINPUT=${PROJECT_SOURCE_DIR}/resources/SearchEngines
+    -DOUTPUT=${NETSURFY_GEN}/search_engines.inc -DNAME=tinysurf_search_engines
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tools/bin2c.cmake
+  DEPENDS ${PROJECT_SOURCE_DIR}/resources/SearchEngines
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/bin2c.cmake
+  VERBATIM)
+
 set(HOST_TOOLS_DIR ${CMAKE_BINARY_DIR}/host-tools)
 if(NETSURFY_HOST_C_COMPILER)
   set(host_compiler -DCMAKE_C_COMPILER=${NETSURFY_HOST_C_COMPILER})
@@ -134,6 +143,7 @@ set(NETSURFY_CORE_SOURCES
   desktop/scrollbar.c
   desktop/search.c
   desktop/searchweb.c
+  ${NETSURFY_GEN}/search_engines.inc
   desktop/selection.c
   desktop/system_colour.c
   desktop/textarea.c
@@ -302,6 +312,19 @@ if(WIN32)
   tinysurf_copy_resource("${GTK_RES_DIR}" "${NETSURFY_GEN}/resources")
   set(GTK_RES_DIR ${NETSURFY_GEN}/resources)
 endif()
+file(GLOB TINYSURF_FLAT_ICONS CONFIGURE_DEPENDS
+  "${PROJECT_SOURCE_DIR}/img/icons-*.png"
+  "${PROJECT_SOURCE_DIR}/img/icons-*.svg")
+foreach(icon IN LISTS TINYSURF_FLAT_ICONS)
+  get_filename_component(icon_name "${icon}" NAME)
+  string(REGEX REPLACE "^icons-" "" icon_path "${icon_name}")
+  if(icon_path MATCHES "^(16x16|24x24|48x48)-actions-(.+)$")
+    set(icon_path "${CMAKE_MATCH_1}/actions/${CMAKE_MATCH_2}")
+  elseif(icon_path MATCHES "^scalable-actions-(.+)$")
+    set(icon_path "scalable/actions/${CMAKE_MATCH_1}")
+  endif()
+  configure_file("${icon}" "${NETSURFY_GEN}/resources/icons/${icon_path}" COPYONLY)
+endforeach()
 set(MESSAGES_DIR ${NETSURFY_GEN}/messages)
 set(NETSURFY_MESSAGES)
 foreach(language ${NETSURFY_MESSAGES_LANGUAGES})
@@ -369,6 +392,8 @@ if(WIN32)
   set_target_properties(tinysurf PROPERTIES WIN32_EXECUTABLE TRUE)
   target_sources(tinysurf PRIVATE frontends/gtk/tinysurf.rc)
   target_include_directories(tinysurf PRIVATE ${PROJECT_SOURCE_DIR}/img)
+  set_property(SOURCE frontends/gtk/tinysurf.rc APPEND PROPERTY OBJECT_DEPENDS
+    ${PROJECT_SOURCE_DIR}/img/tinysurf.ico)
 endif()
 
 target_include_directories(tinysurf PRIVATE
@@ -421,6 +446,9 @@ if(NETSURFY_BUILD_HEADLESS)
     frontends/headless/output.c
     frontends/headless/plot.c
     frontends/headless/schedule.c)
+  target_sources(tinysurf-headless PRIVATE
+    ${NETSURFY_GEN}/tinysurf_gresource.c
+    ${NETSURFY_GEN}/messages_gresource.c)
   add_dependencies(tinysurf-headless testament)
   set_target_properties(tinysurf-headless PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
   target_include_directories(tinysurf-headless PRIVATE
@@ -440,7 +468,8 @@ if(NETSURFY_BUILD_HEADLESS)
   target_compile_options(tinysurf-headless PRIVATE ${NETSURFY_WARNING_FLAGS} -include ${NETSURFY_CONFIG_HEADER})
   target_link_libraries(tinysurf-headless PRIVATE
     ${NETSURFY_CORE_LIBRARIES}
-    $<$<BOOL:${NETSURFY_USE_QUICKJS}>:qjs>)
+    $<$<BOOL:${NETSURFY_USE_QUICKJS}>:qjs>
+    PkgConfig::GLIB)
 endif()
 
 set(NETSURFY_DATADIR ${CMAKE_INSTALL_DATADIR}/tinysurf)
@@ -457,19 +486,21 @@ set(GTK_RESOURCES
   internal.css credits.html licence.html favicon.png tinysurf.png)
 list(TRANSFORM GTK_RESOURCES PREPEND ${GTK_RES_DIR}/)
 list(APPEND GTK_RESOURCES
-  ${PROJECT_SOURCE_DIR}/img/gtk/default.ico
-  ${PROJECT_SOURCE_DIR}/img/gtk/tinysurf.xpm
-  ${PROJECT_SOURCE_DIR}/img/gtk/tinysurf-16x16.xpm)
+  ${PROJECT_SOURCE_DIR}/img/default.ico
+  ${PROJECT_SOURCE_DIR}/img/tinysurf-16x16.png)
 file(GLOB GTK_UI_FILES ${GTK_RES_DIR}/gtk4/*.ui)
 tinysurf_install_resolved(${NETSURFY_DATADIR} ${GTK_RESOURCES} ${GTK_UI_FILES})
+install(FILES ${PROJECT_SOURCE_DIR}/img/tinysurf.png
+  DESTINATION ${NETSURFY_DATADIR} RENAME tinysurf-icon.png)
 install(FILES ${MESSAGES_DIR}/Messages DESTINATION ${NETSURFY_DATADIR})
 
-file(GLOB GTK_ICONS ${GTK_RES_DIR}/icons/*.png)
+file(GLOB GTK_ICONS ${NETSURFY_GEN}/resources/icons/*.png)
 tinysurf_install_resolved(${NETSURFY_DATADIR}/icons ${GTK_ICONS})
 file(GLOB GTK_THROBBER ${GTK_RES_DIR}/throbber/*.png)
 tinysurf_install_resolved(${NETSURFY_DATADIR}/throbber ${GTK_THROBBER})
-install(FILES ${PROJECT_SOURCE_DIR}/img/icons/256x256/apps/tinysurf.png
-  DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/256x256/apps)
+install(FILES ${PROJECT_SOURCE_DIR}/img/tinysurf-256x256.png
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/256x256/apps
+  RENAME tinysurf.png)
 
 foreach(language ${NETSURFY_MESSAGES_LANGUAGES})
   file(GLOB language_files ${GTK_RES_DIR}/${language}/*)

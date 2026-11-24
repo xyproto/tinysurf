@@ -19,6 +19,12 @@
 #ifndef NS_HEADLESS_FETCH_H
 #define NS_HEADLESS_FETCH_H
 
+#include <stddef.h>
+#include <stdint.h>
+#include "utils/errors.h"
+
+nserror headless_resource_data(const char *path, const uint8_t **data,
+			       size_t *data_len);
 extern struct gui_fetch_table *headless_fetch_table;
 
 #endif /* NS_HEADLESS_FETCH_H */
