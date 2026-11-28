@@ -19,7 +19,7 @@
 #include "desktop/version.h"
 #include "testament.h"
 
-const char *const tinysurf_version = "1.1.8"
+const char *const tinysurf_version = "1.1.9"
 #if defined(CI_BUILD)
 				     " (CI #" CI_BUILD ")"
 #endif

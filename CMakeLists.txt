@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(TinySurf VERSION 1.1.8 LANGUAGES C)
+project(TinySurf VERSION 1.1.9 LANGUAGES C)
 
 if(NOT CMAKE_SYSTEM_NAME MATCHES "^(Linux|Windows)$")
   message(FATAL_ERROR "TinySurf supports Linux and Windows")
